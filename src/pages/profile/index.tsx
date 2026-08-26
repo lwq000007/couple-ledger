@@ -6,16 +6,17 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog'
-import { User, Copy, Users, Settings, ChevronRight, Heart } from 'lucide-react-taro'
+import { User, Copy, Users, Settings, ChevronRight, Heart, Share2 } from 'lucide-react-taro'
 
 const ProfilePage = () => {
-  const { userName, book, joinBook, updateProfile } = useAppStore()
+  const { userName, book, joinBook, updateProfile, getShareLink } = useAppStore()
 
   const [showEditName, setShowEditName] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
   const [newName, setNewName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [copied, setCopied] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   useEffect(() => {
     setNewName(userName)
@@ -47,6 +48,18 @@ const ProfilePage = () => {
       success: () => {
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
+      },
+    })
+  }
+
+  const handleCopyShareLink = () => {
+    const link = getShareLink()
+    if (!link) return
+    Taro.setClipboardData({
+      data: link,
+      success: () => {
+        setLinkCopied(true)
+        setTimeout(() => setLinkCopied(false), 2000)
       },
     })
   }
@@ -91,21 +104,30 @@ const ProfilePage = () => {
               {book.members.length < 2 ? (
                 <View>
                   <Text className="block text-sm text-[#8D6E63] mb-3">
-                    将邀请码分享给你的另一半，TA输入后即可一起记账
+                    分享链接给朋友，TA打开即可自动加入账本
                   </Text>
-                  <View className="bg-[#FFF0E8] rounded-xl p-4 flex items-center justify-between mb-3">
-                    <View>
-                      <Text className="block text-xs text-[#BCAAA4] mb-1">我的邀请码</Text>
-                      <Text className="block text-2xl font-bold text-[#FF6B6B] tracking-widest">
-                        {book.inviteCode}
-                      </Text>
+                  <View className="bg-[#FFF0E8] rounded-xl p-4 mb-3">
+                    <View className="flex items-center justify-between mb-3">
+                      <View>
+                        <Text className="block text-xs text-[#BCAAA4] mb-1">我的邀请码</Text>
+                        <Text className="block text-2xl font-bold text-[#FF6B6B] tracking-widest">
+                          {book.inviteCode}
+                        </Text>
+                      </View>
+                      <Button
+                        className="rounded-xl bg-[#FFE0D0]"
+                        onClick={handleCopyCode}
+                      >
+                        <Copy size={14} color="#FF6B6B" />
+                        <Text className="text-[#FF6B6B] ml-1">{copied ? '已复制' : '复制码'}</Text>
+                      </Button>
                     </View>
                     <Button
-                      className="rounded-xl bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white"
-                      onClick={handleCopyCode}
+                      className="w-full rounded-xl bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white"
+                      onClick={handleCopyShareLink}
                     >
-                      <Copy size={14} color="#ffffff" />
-                      <Text className="text-white ml-1">{copied ? '已复制' : '复制'}</Text>
+                      <Share2 size={14} color="#ffffff" />
+                      <Text className="text-white ml-1">{linkCopied ? '链接已复制，快发给TA' : '复制邀请链接'}</Text>
                     </Button>
                   </View>
                 </View>

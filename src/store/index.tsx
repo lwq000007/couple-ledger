@@ -99,20 +99,75 @@ interface AppState {
   updateProfile: (name: string) => Promise<void>
   loadMembers: () => Promise<void>
   createInviteCode: () => Promise<string>
+  getShareLink: () => string
+  pendingInviteCode: string
 }
 
 const AppContext = createContext<AppState | null>(null)
 
+// 从URL获取参数（H5环境）
+const getUrlParam = (key: string): string => {
+  try {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      return params.get(key) || ''
+    }
+  } catch { /* ignore */ }
+  return ''
+}
+
+// 设置URL参数（不刷新页面）
+const setUrlParam = (key: string, value: string) => {
+  try {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set(key, value)
+      window.history.replaceState({}, '', url.toString())
+    }
+  } catch { /* ignore */ }
+}
+
 const getUserId = () => {
   try {
+    // 优先从URL获取（保证同一链接=同一用户）
+    const urlUid = getUrlParam('uid')
+    if (urlUid) {
+      Taro.setStorageSync('userId', urlUid)
+      return urlUid
+    }
+    // 其次从本地存储获取
     const stored = Taro.getStorageSync('userId')
-    if (stored) return stored
+    if (stored) {
+      setUrlParam('uid', stored)
+      return stored
+    }
+    // 都没有则生成新的
     const newId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     Taro.setStorageSync('userId', newId)
+    setUrlParam('uid', newId)
     return newId
   } catch {
     return `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   }
+}
+
+// 获取URL中的邀请码
+const getInviteCodeFromUrl = (): string => {
+  return getUrlParam('invite') || ''
+}
+
+// 生成分享链接
+const generateShareLink = (inviteCode: string): string => {
+  try {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('invite', inviteCode)
+      // 移除uid参数，让朋友生成自己的身份
+      url.searchParams.delete('uid')
+      return url.toString()
+    }
+  } catch { /* ignore */ }
+  return `?invite=${inviteCode}`
 }
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
@@ -125,6 +180,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null)
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([])
+  const [pendingInviteCode] = useState(getInviteCodeFromUrl)
   const userIdRef = useRef(userId)
 
   useEffect(() => {
@@ -332,6 +388,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return result.inviteCode
   }, [book])
 
+  const getShareLink = useCallback(() => {
+    if (!book?.inviteCode) return ''
+    return generateShareLink(book.inviteCode)
+  }, [book])
+
   const value: AppState = {
     userId, userName, userAvatar, isLoggedIn,
     book, categories, chatMessages, monthlyStats, expenses,
@@ -339,7 +400,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     loadCategories, loadChatMessages, addChatMessage,
     loadMonthlyStats, loadExpenses, addExpense, batchAddExpenses,
     deleteExpense, updateSavingsGoal, updateProfile,
-    loadMembers, createInviteCode,
+    loadMembers, createInviteCode, getShareLink,
+    pendingInviteCode,
   }
 
   return (

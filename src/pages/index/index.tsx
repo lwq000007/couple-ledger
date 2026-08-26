@@ -13,9 +13,9 @@ import './index.css'
 
 const IndexPage = () => {
   const {
-    userName, book, chatMessages, monthlyStats,
+    userName, book, chatMessages, monthlyStats, pendingInviteCode,
     initUser, loadBook, loadCategories, loadChatMessages,
-    loadMonthlyStats, addChatMessage, batchAddExpenses, createBook,
+    loadMonthlyStats, addChatMessage, batchAddExpenses, createBook, joinBook,
   } = useAppStore()
 
   const [inputText, setInputText] = useState('')
@@ -35,6 +35,15 @@ const IndexPage = () => {
       await initUser(storedName || undefined)
       await loadBook()
       await loadCategories()
+
+      // 如果URL中有邀请码，自动加入账本
+      if (pendingInviteCode) {
+        const success = await joinBook(pendingInviteCode)
+        if (success) {
+          Taro.showToast({ title: '已加入账本', icon: 'success' })
+          await loadBook()
+        }
+      }
     }
     init()
   }, [])
