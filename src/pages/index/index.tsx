@@ -13,7 +13,7 @@ import './index.css'
 
 const IndexPage = () => {
   const {
-    userName, book, chatMessages, monthlyStats, pendingInviteCode,
+    userName, book, chatMessages, monthlyStats, pendingInviteCode, isLoggedIn,
     initUser, loadBook, loadCategories, loadChatMessages,
     loadMonthlyStats, addChatMessage, batchAddExpenses, createBook, joinBook,
   } = useAppStore()
@@ -28,6 +28,13 @@ const IndexPage = () => {
   }>>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const scrollId = useRef('')
+
+  // 检查登录状态，未登录则跳转到登录页
+  useEffect(() => {
+    if (!isLoggedIn) {
+      Taro.redirectTo({ url: '/pages/login/index' })
+    }
+  }, [isLoggedIn])
 
   useEffect(() => {
     const init = async () => {

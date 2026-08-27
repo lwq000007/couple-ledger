@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import {
+  AuthController,
   BookController,
   ExpenseController,
   UserController,
@@ -9,7 +10,7 @@ import { DataService } from '@/data.service'
 
 @Module({
   imports: [],
-  controllers: [BookController, ExpenseController, UserController, ChatController],
+  controllers: [AuthController, BookController, ExpenseController, UserController, ChatController],
   providers: [DataService],
 })
 export class AppModule {}

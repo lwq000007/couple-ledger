@@ -1,6 +1,23 @@
 import { Controller, Get, Post, Put, Delete, Body, Query } from '@nestjs/common'
 import { DataService } from '@/data.service'
 
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly dataService: DataService) {}
+
+  @Post('register')
+  register(@Body() body: { username: string; password: string; displayName?: string }) {
+    const result = this.dataService.register(body.username, body.password, body.displayName)
+    return { code: result.success ? 200 : 400, msg: result.message, data: { userId: result.userId } }
+  }
+
+  @Post('login')
+  login(@Body() body: { username: string; password: string }) {
+    const result = this.dataService.login(body.username, body.password)
+    return { code: result.success ? 200 : 400, msg: result.message, data: { userId: result.userId, user: result.user } }
+  }
+}
+
 @Controller('book')
 export class BookController {
   constructor(private readonly dataService: DataService) {}

@@ -2,6 +2,7 @@ export default typeof defineAppConfig === 'function'
   ? defineAppConfig({
     pages: [
       'pages/index/index',
+      'pages/login/index',
       'pages/detail/index',
       'pages/couple/index',
       'pages/profile/index',

@@ -84,6 +84,8 @@ interface AppState {
   monthlyStats: MonthlyStats | null
   expenses: ExpenseRecord[]
   initUser: (name?: string) => Promise<void>
+  login: (userId: string, userName: string) => void
+  logout: () => void
   loadBook: () => Promise<void>
   createBook: (name: string) => Promise<Book | null>
   joinBook: (inviteCode: string) => Promise<boolean>
@@ -171,7 +173,7 @@ const generateShareLink = (inviteCode: string): string => {
 }
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
-  const [userId] = useState(getUserId)
+  const [userId, setUserId] = useState(getUserId)
   const [userName, setUserName] = useState('')
   const [userAvatar, setUserAvatar] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -204,6 +206,26 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err) {
       console.error('initUser error:', err)
     }
+  }, [])
+
+  const login = useCallback((newUserId: string, name: string) => {
+    setUserId(newUserId)
+    userIdRef.current = newUserId
+    setUserName(name)
+    setIsLoggedIn(true)
+    Taro.setStorageSync('userId', newUserId)
+    Taro.setStorageSync('userName', name)
+    setUrlParam('uid', newUserId)
+  }, [])
+
+  const logout = useCallback(() => {
+    setIsLoggedIn(false)
+    setUserId('')
+    setUserName('')
+    setUserAvatar('')
+    setBook(null)
+    Taro.removeStorageSync('userId')
+    Taro.removeStorageSync('userName')
   }, [])
 
   const loadBook = useCallback(async () => {
@@ -396,7 +418,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const value: AppState = {
     userId, userName, userAvatar, isLoggedIn,
     book, categories, chatMessages, monthlyStats, expenses,
-    initUser, loadBook, createBook, joinBook,
+    initUser, login, logout, loadBook, createBook, joinBook,
     loadCategories, loadChatMessages, addChatMessage,
     loadMonthlyStats, loadExpenses, addExpense, batchAddExpenses,
     deleteExpense, updateSavingsGoal, updateProfile,

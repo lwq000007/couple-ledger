@@ -34,6 +34,9 @@ const expenses = new Map<string, ExpenseRecord>()
 const users = new Map<string, User>()
 const chatMessages = new Map<string, ChatMessage>()
 
+// 账号存储: username -> { password, userId }
+const accounts = new Map<string, { password: string; userId: string }>()
+
 let idCounter = 1
 function genId(): string {
   return `id_${Date.now()}_${idCounter++}`
@@ -52,6 +55,33 @@ function genInviteCode(): string {
 export class DataService {
   getCategories(): Category[] {
     return CATEGORIES
+  }
+
+  // 账号注册
+  register(username: string, password: string, displayName?: string): { success: boolean; message: string; userId?: string } {
+    if (!username || !password) {
+      return { success: false, message: '用户名和密码不能为空' }
+    }
+    if (accounts.has(username)) {
+      return { success: false, message: '用户名已存在' }
+    }
+    const userId = genId()
+    accounts.set(username, { password, userId })
+    this.getOrCreateUser(userId, displayName || username)
+    return { success: true, message: '注册成功', userId }
+  }
+
+  // 账号登录
+  login(username: string, password: string): { success: boolean; message: string; userId?: string; user?: User } {
+    const account = accounts.get(username)
+    if (!account) {
+      return { success: false, message: '用户不存在' }
+    }
+    if (account.password !== password) {
+      return { success: false, message: '密码错误' }
+    }
+    const user = this.getUser(account.userId)
+    return { success: true, message: '登录成功', userId: account.userId, user }
   }
 
   // 用户相关
