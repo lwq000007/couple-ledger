@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { Button } from '@/components/ui/button'
@@ -18,21 +18,44 @@ const getUrlParam = (key: string): string => {
   return ''
 }
 
+// 从localStorage获取或生成userId
+const getOrCreateUserId = (): string => {
+  try {
+    const stored = Taro.getStorageSync('userId')
+    if (stored) return stored
+    const newId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    Taro.setStorageSync('userId', newId)
+    return newId
+  } catch {
+    return `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  }
+}
+
 export default function LoginPage() {
   const { login, joinBook, loadBook } = useAppStore()
-  const [isRegister, setIsRegister] = useState(false)
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
+  const [nickname, setNickname] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   // 检查URL中是否有邀请码
   const inviteCode = getUrlParam('invite')
 
-  const handleSubmit = async () => {
-    if (!username.trim() || !password.trim()) {
-      setError('请输入用户名和密码')
+  // 检查是否已登录
+  useEffect(() => {
+    const storedUserId = Taro.getStorageSync('userId')
+    const storedUserName = Taro.getStorageSync('userName')
+    if (storedUserId && storedUserName) {
+      // 已登录，直接进入
+      handleEnter(storedUserId, storedUserName)
+    }
+  }, [])
+
+  const handleEnter = async (userId?: string, name?: string) => {
+    const finalUserId = userId || getOrCreateUserId()
+    const finalName = name || nickname.trim() || '匿名'
+
+    if (!name && !nickname.trim()) {
+      setError('请输入你的昵称')
       return
     }
 
@@ -40,170 +63,135 @@ export default function LoginPage() {
     setError('')
 
     try {
-      if (isRegister) {
-        // 注册
-        const res = await Network.request({
-          url: '/api/auth/register',
-          method: 'POST',
-          data: {
-            username: username.trim(),
-            password: password.trim(),
-            displayName: displayName.trim() || username.trim(),
-          },
-        })
-        console.log('Register response:', res.data)
-        const data = res.data as { code: number; msg: string; data: { userId: string } }
-        if (data.code === 200 && data.data?.userId) {
-          // 注册成功后登录
-          login(data.data.userId, username.trim())
-          // 如果有邀请码，自动加入账本
-          if (inviteCode) {
-            const success = await joinBook(inviteCode)
-            if (success) {
-              await loadBook()
-              Taro.showToast({ title: '已加入账本', icon: 'success' })
-            }
-          }
+      // 保存用户信息到localStorage
+      Taro.setStorageSync('userId', finalUserId)
+      Taro.setStorageSync('userName', finalName)
+
+      // 登录
+      login(finalUserId, finalName)
+
+      // 如果有邀请码，尝试加入账本
+      if (inviteCode) {
+        const success = await joinBook(inviteCode)
+        if (success) {
+          await loadBook()
+          Taro.showToast({ title: '已加入账本', icon: 'success' })
           Taro.redirectTo({ url: '/pages/index/index' })
-        } else {
-          setError(data.msg || '注册失败')
-        }
-      } else {
-        // 登录
-        const res = await Network.request({
-          url: '/api/auth/login',
-          method: 'POST',
-          data: {
-            username: username.trim(),
-            password: password.trim(),
-          },
-        })
-        console.log('Login response:', res.data)
-        const data = res.data as { code: number; msg: string; data: { userId: string; user: { name: string } } }
-        if (data.code === 200 && data.data?.userId) {
-          login(data.data.userId, data.data.user?.name || username.trim())
-          // 如果有邀请码，自动加入账本
-          if (inviteCode) {
-            const success = await joinBook(inviteCode)
-            if (success) {
-              await loadBook()
-              Taro.showToast({ title: '已加入账本', icon: 'success' })
-            }
-          }
-          Taro.redirectTo({ url: '/pages/index/index' })
-        } else {
-          setError(data.msg || '登录失败')
+          return
         }
       }
+
+      // 没有邀请码或加入失败，检查是否已有账本
+      try {
+        const bookRes = await Network.request({
+          url: '/api/book/info',
+          method: 'GET',
+          data: { userId: finalUserId },
+        })
+        const bookData = bookRes.data as { code: number; data: { id: string } | null }
+        if (bookData.code === 200 && bookData.data?.id) {
+          // 已有账本，直接加载
+          await loadBook()
+          Taro.redirectTo({ url: '/pages/index/index' })
+          return
+        }
+      } catch { /* ignore */ }
+
+      // 没有账本，创建一个
+      const createRes = await Network.request({
+        url: '/api/book/create',
+        method: 'POST',
+        data: {
+          userId: finalUserId,
+          name: `${finalName}的账本`,
+        },
+      })
+      const createData = createRes.data as { code: number; data: { id: string } }
+      if (createData.code === 200 && createData.data?.id) {
+        await loadBook()
+        Taro.redirectTo({ url: '/pages/index/index' })
+      } else {
+        setError('创建账本失败，请重试')
+      }
     } catch (err) {
-      console.error('Auth error:', err)
+      console.error('Enter error:', err)
       setError('网络错误，请重试')
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <View className="min-h-screen bg-cream flex flex-col items-center justify-center px-6">
-      {/* Logo */}
-      <View className="mb-8 text-center">
-        <Text className="block text-5xl mb-2">💑</Text>
-        <Text className="block text-2xl font-bold text-stone-800">俩个人的账本</Text>
-        <Text className="block text-sm text-stone-500 mt-1">和TA一起记录每一笔</Text>
-      </View>
+  const handleSubmit = () => {
+    handleEnter()
+  }
 
-      {/* Invite hint */}
-      {inviteCode ? (
-        <View className="mb-4 px-4 py-2 bg-coral-50 rounded-xl">
-          <Text className="block text-sm text-coral text-center">
-            有人邀请你加入账本，登录后自动加入
+  return (
+    <View className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-orange-50 to-white px-6">
+      <View className="w-full max-w-sm">
+        {/* Logo区域 */}
+        <View className="flex flex-col items-center mb-10">
+          <Text className="block text-6xl mb-4">💕</Text>
+          <Text className="block text-2xl font-bold text-gray-800">
+            俩个人的账本
+          </Text>
+          <Text className="block text-sm text-gray-500 mt-2">
+            和TA一起记录每一笔
           </Text>
         </View>
-      ) : null}
 
-      {/* Login Card */}
-      <Card className="w-full max-w-sm bg-white rounded-2xl shadow-sm">
-        <CardContent className="p-6">
-          <Text className="block text-lg font-semibold text-stone-800 mb-4">
-            {isRegister ? '注册新账号' : '登录'}
-          </Text>
+        {/* 输入区域 */}
+        <Card className="shadow-lg border-0 rounded-2xl">
+          <CardContent className="p-6">
+            {inviteCode ? (
+              <View className="mb-4 p-3 bg-orange-50 rounded-xl">
+                <Text className="block text-sm text-orange-600 text-center">
+                  有人邀请你一起记账啦
+                </Text>
+              </View>
+            ) : null}
 
-          <View className="space-y-3">
-            <View>
-              <Text className="block text-xs text-stone-500 mb-1">用户名</Text>
-              <View className="bg-stone-50 rounded-xl px-4 py-2">
+            <View className="mb-4">
+              <Text className="block text-sm text-gray-600 mb-2">
+                输入你的昵称
+              </Text>
+              <View className="bg-gray-50 rounded-xl px-4 py-3">
                 <Input
-                  className="w-full bg-transparent text-sm"
-                  placeholder="输入用户名"
-                  value={username}
-                  onInput={(e) => setUsername(e.detail.value)}
+                  className="w-full bg-transparent"
+                  placeholder="比如：小明、宝宝"
+                  value={nickname}
+                  onInput={(e) => setNickname(e.detail.value)}
+                  maxlength={20}
                 />
               </View>
             </View>
 
-            <View>
-              <Text className="block text-xs text-stone-500 mb-1">密码</Text>
-              <View className="bg-stone-50 rounded-xl px-4 py-2">
-                <Input
-                  className="w-full bg-transparent text-sm"
-                  placeholder="输入密码"
-                  password
-                  value={password}
-                  onInput={(e) => setPassword(e.detail.value)}
-                />
-              </View>
-            </View>
+            {error ? (
+              <Text className="block text-sm text-red-500 mb-4 text-center">
+                {error}
+              </Text>
+            ) : null}
 
-            {isRegister && (
-              <View>
-                <Text className="block text-xs text-stone-500 mb-1">昵称（可选）</Text>
-                <View className="bg-stone-50 rounded-xl px-4 py-2">
-                  <Input
-                    className="w-full bg-transparent text-sm"
-                    placeholder="你想被称呼的名字"
-                    value={displayName}
-                    onInput={(e) => setDisplayName(e.detail.value)}
-                  />
-                </View>
-              </View>
-            )}
-          </View>
-
-          {error ? (
-            <Text className="block text-xs text-red-500 mt-3">{error}</Text>
-          ) : null}
-
-          <Button
-            className="w-full mt-5 h-11 rounded-xl text-white font-medium"
-            style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' }}
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            <Text className="text-white">{loading ? '处理中...' : isRegister ? '注册' : '登录'}</Text>
-          </Button>
-
-          <View className="mt-4 text-center">
-            <Text
-              className="text-sm text-coral"
-              onClick={() => {
-                setIsRegister(!isRegister)
-                setError('')
-              }}
+            <Button
+              className="w-full h-12 bg-gradient-to-r from-orange-400 to-pink-400 text-white rounded-xl text-base font-medium"
+              onClick={handleSubmit}
+              disabled={loading}
             >
-              {isRegister ? '已有账号？去登录' : '没有账号？去注册'}
-            </Text>
-          </View>
-        </CardContent>
-      </Card>
+              <Text className="text-white text-base">
+                {loading ? '进入中...' : inviteCode ? '加入并记账' : '开始记账'}
+              </Text>
+            </Button>
+          </CardContent>
+        </Card>
 
-      {/* Hint */}
-      <View className="mt-6 text-center">
-        <Text className="block text-xs text-stone-400">
-          注册后告诉对方你的用户名和密码
-        </Text>
-        <Text className="block text-xs text-stone-400 mt-1">
-           TA登录后即可一起记账
-        </Text>
+        {/* 底部提示 */}
+        <View className="mt-6 text-center">
+          <Text className="block text-xs text-gray-400">
+            你的数据会保存在这个设备上
+          </Text>
+          <Text className="block text-xs text-gray-400 mt-1">
+            分享链接给朋友，一起记账吧
+          </Text>
+        </View>
       </View>
     </View>
   )
