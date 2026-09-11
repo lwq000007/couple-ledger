@@ -3,19 +3,26 @@
 
 <head>
   <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
-  <meta content="width=device-width,initial-scale=1,user-scalable=no" name="viewport">
+  <meta content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover" name="viewport">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-touch-fullscreen" content="yes">
   <meta name="format-detection" content="telephone=no,address=no">
-  <meta name="apple-mobile-web-app-status-bar-style" content="white">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-  <title>coze-mini-program</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#FF6B6B">
+  <meta name="description" content="情侣共同记账，AI智能解析，温馨记录每一笔">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./assets/pwa/icon-192.png">
+  
+  <title>俩个人的账本</title>
   <script><%= htmlWebpackPlugin.options.script %></script>
 </head>
 
 <body>
   <div id="app">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="lab(2.86037 0.455312 0.568903)"
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B"
       stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="
         position: fixed;
         inset: 0;
@@ -34,6 +41,17 @@
       }
     </style>
   </div>
+  
+  <!-- Register Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW registered'))
+          .catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
 </body>
 
 </html>

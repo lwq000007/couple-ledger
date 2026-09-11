@@ -98,7 +98,15 @@ export default defineConfig<'vite'>(async (merge, _env) => {
       TARO_ENV: JSON.stringify(process.env.TARO_ENV),
     },
     copy: {
-      patterns: [],
+      patterns: [
+        ...(isH5
+          ? [
+              { from: 'src/manifest.json', to: 'manifest.json' },
+              { from: 'src/sw.js', to: 'sw.js' },
+              { from: 'src/assets/pwa', to: 'assets/pwa' },
+            ]
+          : []),
+      ],
       options: {},
     },
     ...(process.env.TARO_ENV === 'tt' && {
