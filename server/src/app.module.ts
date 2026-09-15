@@ -3,14 +3,13 @@ import {
   AuthController,
   BookController,
   ExpenseController,
-  UserController,
   ChatController,
 } from '@/app.controller'
 import { DataService } from '@/data.service'
 
 @Module({
   imports: [],
-  controllers: [AuthController, BookController, ExpenseController, UserController, ChatController],
+  controllers: [AuthController, BookController, ExpenseController, ChatController],
   providers: [DataService],
 })
 export class AppModule {}

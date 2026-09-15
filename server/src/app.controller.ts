@@ -6,14 +6,14 @@ export class AuthController {
   constructor(private readonly dataService: DataService) {}
 
   @Post('register')
-  register(@Body() body: { username: string; password: string; displayName?: string }) {
-    const result = this.dataService.register(body.username, body.password, body.displayName)
+  async register(@Body() body: { username: string; password: string; displayName?: string }) {
+    const result = await this.dataService.register(body.username, body.password, body.displayName)
     return { code: result.success ? 200 : 400, msg: result.message, data: { userId: result.userId } }
   }
 
   @Post('login')
-  login(@Body() body: { username: string; password: string }) {
-    const result = this.dataService.login(body.username, body.password)
+  async login(@Body() body: { username: string; password: string }) {
+    const result = await this.dataService.login(body.username, body.password)
     return { code: result.success ? 200 : 400, msg: result.message, data: { userId: result.userId, user: result.user } }
   }
 }
@@ -28,26 +28,26 @@ export class BookController {
   }
 
   @Post('create')
-  createBook(@Body() body: { userId: string; name: string }) {
-    const book = this.dataService.createBook(body.userId, body.name || '我们的小账本')
+  async createBook(@Body() body: { userId: string; name: string }) {
+    const book = await this.dataService.createBook(body.userId, body.name || '我们的小账本')
     return { code: 200, msg: 'success', data: book }
   }
 
   @Get('info')
-  getBookInfo(@Query('userId') userId: string) {
-    const book = this.dataService.getUserBook(userId)
+  async getBookInfo(@Query('userId') userId: string) {
+    const book = await this.dataService.getUserBook(userId)
     return { code: 200, msg: 'success', data: book || null }
   }
 
   @Post('join')
-  joinBook(@Body() body: { userId: string; inviteCode: string }) {
-    const result = this.dataService.joinBook(body.userId, body.inviteCode)
+  async joinBook(@Body() body: { userId: string; inviteCode: string }) {
+    const result = await this.dataService.joinBook(body.userId, body.inviteCode)
     return { code: 200, msg: result.message, data: result.book || null }
   }
 
   @Put('savings-goal')
-  updateSavingsGoal(@Body() body: { bookId: string; title: string; targetAmount: number }) {
-    const book = this.dataService.updateSavingsGoal(body.bookId, body.title, body.targetAmount)
+  async updateSavingsGoal(@Body() body: { bookId: string; title: string; targetAmount: number }) {
+    const book = await this.dataService.updateSavingsGoal(body.bookId, body.title, body.targetAmount)
     return { code: 200, msg: 'success', data: book }
   }
 }
@@ -57,7 +57,7 @@ export class ExpenseController {
   constructor(private readonly dataService: DataService) {}
 
   @Post('add')
-  addExpense(@Body() body: {
+  async addExpense(@Body() body: {
     bookId: string
     userId: string
     userName: string
@@ -70,12 +70,12 @@ export class ExpenseController {
     note: string
     date: string
   }) {
-    const record = this.dataService.addExpense(body)
+    const record = await this.dataService.addExpense(body)
     return { code: 200, msg: 'success', data: record }
   }
 
   @Post('batch-add')
-  batchAddExpenses(@Body() body: {
+  async batchAddExpenses(@Body() body: {
     bookId: string
     userId: string
     userName: string
@@ -90,7 +90,7 @@ export class ExpenseController {
       date: string
     }>
   }) {
-    const records = body.records.map(r =>
+    const records = await Promise.all(body.records.map(r =>
       this.dataService.addExpense({
         ...r,
         bookId: body.bookId,
@@ -98,24 +98,32 @@ export class ExpenseController {
         userName: body.userName,
         userAvatar: body.userAvatar,
       }),
-    )
+    ))
     return { code: 200, msg: 'success', data: records }
   }
 
   @Delete('delete')
-  deleteExpense(@Body() body: { recordId: string }) {
-    const success = this.dataService.deleteExpense(body.recordId)
-    return { code: 200, msg: success ? 'success' : '记录不存在', data: success }
+  async deleteExpense(@Body() body: { recordId: string }) {
+    const success = await this.dataService.deleteExpense(body.recordId)
+    return { code: success ? 200 : 404, msg: success ? 'success' : '记录不存在' }
   }
 
   @Put('update')
-  updateExpense(@Body() body: { recordId: string; data: Record<string, unknown> }) {
-    const record = this.dataService.updateExpense(body.recordId, body.data)
-    return { code: 200, msg: 'success', data: record }
+  async updateExpense(@Body() body: { recordId: string } & Partial<{
+    amount: number
+    categoryId: string
+    categoryName: string
+    categoryEmoji: string
+    note: string
+    date: string
+  }>) {
+    const { recordId, ...data } = body
+    const record = await this.dataService.updateExpense(recordId, data)
+    return { code: record ? 200 : 404, msg: record ? 'success' : '记录不存在', data: record }
   }
 
   @Get('list')
-  getExpenseList(
+  async getExpenseList(
     @Query('bookId') bookId: string,
     @Query('categoryId') categoryId?: string,
     @Query('userId') userId?: string,
@@ -123,7 +131,7 @@ export class ExpenseController {
     @Query('endDate') endDate?: string,
     @Query('type') type?: string,
   ) {
-    const records = this.dataService.getBookExpenses(bookId, {
+    const records = await this.dataService.getBookExpenses(bookId, {
       categoryId,
       userId,
       startDate,
@@ -134,36 +142,13 @@ export class ExpenseController {
   }
 
   @Get('stats')
-  getMonthlyStats(
+  async getStats(
     @Query('bookId') bookId: string,
     @Query('year') year: string,
     @Query('month') month: string,
   ) {
-    const stats = this.dataService.getMonthlyStats(bookId, parseInt(year), parseInt(month))
+    const stats = await this.dataService.getMonthlyStats(bookId, parseInt(year), parseInt(month))
     return { code: 200, msg: 'success', data: stats }
-  }
-}
-
-@Controller('user')
-export class UserController {
-  constructor(private readonly dataService: DataService) {}
-
-  @Post('login')
-  login(@Body() body: { userId: string; name?: string; avatar?: string }) {
-    const user = this.dataService.getOrCreateUser(body.userId, body.name, body.avatar)
-    return { code: 200, msg: 'success', data: user }
-  }
-
-  @Put('update')
-  updateUser(@Body() body: { userId: string; name?: string; avatar?: string }) {
-    const user = this.dataService.updateUser(body.userId, { name: body.name, avatar: body.avatar })
-    return { code: 200, msg: 'success', data: user }
-  }
-
-  @Get('info')
-  getUserInfo(@Query('userId') userId: string) {
-    const user = this.dataService.getUser(userId)
-    return { code: 200, msg: 'success', data: user || null }
   }
 }
 
@@ -172,28 +157,34 @@ export class ChatController {
   constructor(private readonly dataService: DataService) {}
 
   @Get('messages')
-  getMessages(@Query('bookId') bookId: string) {
-    const messages = this.dataService.getBookChatMessages(bookId)
+  async getMessages(@Query('bookId') bookId: string) {
+    const messages = await this.dataService.getChatMessages(bookId)
     return { code: 200, msg: 'success', data: messages }
   }
 
   @Post('message')
-  addMessage(@Body() body: {
+  async addMessage(@Body() body: {
     bookId: string
     userId: string
     role: 'user' | 'assistant'
     content: string
-    parsedRecords?: Array<{
-      categoryId: string
-      categoryName: string
-      categoryEmoji: string
-      amount: number
-      note: string
-      type: 'expense' | 'income'
-      confirmed: boolean
-    }>
+    parsedRecords?: any[]
   }) {
-    const msg = this.dataService.addChatMessage(body)
-    return { code: 200, msg: 'success', data: msg }
+    const message = await this.dataService.addChatMessage(
+      body.bookId,
+      body.userId,
+      body.role,
+      body.content,
+      body.parsedRecords,
+    )
+    return { code: 200, msg: 'success', data: message }
+  }
+}
+
+@Controller()
+export class AppController {
+  @Get('hello')
+  getHello() {
+    return { code: 200, msg: 'success', data: { message: 'Hello from 俩个人的账本 API' } }
   }
 }
