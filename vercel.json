@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm build:web",
+  "buildCommand": "pnpm --filter . build:web",
   "outputDirectory": "dist-web",
   "installCommand": "pnpm install",
   "framework": null
