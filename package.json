@@ -9,7 +9,7 @@
     "build:server": "pnpm --filter server build",
     "build:tt": "taro build --type tt",
     "build:weapp": "taro build --type weapp",
-    "build:web": "taro build --type h5",
+    "build:web": "npx taro build --type h5",
     "dev": "pnpm exec concurrently --kill-others --kill-signal SIGKILL -n web,server -c blue,green \"pnpm dev:web\" \"pnpm dev:server\"",
     "dev:server": "pnpm --filter server dev",
     "dev:tt": "taro build --type tt --watch",
