@@ -2,6 +2,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
 import { useAppStore } from '@/store'
+import { supabaseService } from '@/services/supabase-service'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog'
 import { User, Copy, Users, Settings, ChevronRight, Heart, Share2 } from 'lucide-react-taro'
 
 const ProfilePage = () => {
-  const { userName, book, joinBook, updateProfile, getShareLink } = useAppStore()
+  const { userId, userName, book, joinBook } = useAppStore()
 
   const [showEditName, setShowEditName] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
@@ -24,7 +25,7 @@ const ProfilePage = () => {
 
   const handleSaveName = async () => {
     if (!newName.trim()) return
-    await updateProfile(newName.trim())
+    await supabaseService.updateUserProfile(userId, { displayName: newName.trim() })
     setShowEditName(false)
     Taro.showToast({ title: '已更新', icon: 'success' })
   }
@@ -53,8 +54,9 @@ const ProfilePage = () => {
   }
 
   const handleCopyShareLink = () => {
-    const link = getShareLink()
-    if (!link) return
+    if (!book?.inviteCode) return
+    const baseUrl = window.location.origin
+    const link = `${baseUrl}?invite=${book.inviteCode}`
     Taro.setClipboardData({
       data: link,
       success: () => {

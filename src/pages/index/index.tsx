@@ -13,7 +13,7 @@ import './index.css'
 
 const IndexPage = () => {
   const {
-    userName, book, chatMessages, monthlyStats, pendingInviteCode, isLoggedIn,
+    userName, book, chatMessages, monthlyStats, isLoggedIn,
     initUser, loadBook, loadCategories, loadChatMessages,
     loadMonthlyStats, addChatMessage, batchAddExpenses, createBook, joinBook,
   } = useAppStore()
@@ -44,8 +44,9 @@ const IndexPage = () => {
       await loadCategories()
 
       // 如果URL中有邀请码，自动加入账本
-      if (pendingInviteCode) {
-        const success = await joinBook(pendingInviteCode)
+      const inviteCodeFromUrl = new URLSearchParams(window.location.search).get('invite')
+      if (inviteCodeFromUrl) {
+        const success = await joinBook(inviteCodeFromUrl)
         if (success) {
           Taro.showToast({ title: '已加入账本', icon: 'success' })
           await loadBook()
